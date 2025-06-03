@@ -1,16 +1,16 @@
 return {
     "neovim/nvim-lspconfig",
     dependencies = {
+        "folke/lazydev.nvim",
         "stevearc/conform.nvim",
         "williamboman/mason.nvim",
         "williamboman/mason-lspconfig.nvim",
+        "WhoIsSethDaniel/mason-tool-installer.nvim",
         "hrsh7th/cmp-nvim-lsp",
         "hrsh7th/cmp-buffer",
         "hrsh7th/cmp-path",
         "hrsh7th/cmp-cmdline",
         "hrsh7th/nvim-cmp",
-        "L3MON4D3/LuaSnip",
-        "saadparwaiz1/cmp_luasnip",
         "j-hui/fidget.nvim",
     },
 
@@ -28,111 +28,171 @@ return {
             cmp_lsp.default_capabilities())
 
         require("fidget").setup({})
-        require("mason").setup()
-        require("mason-lspconfig").setup({
-            ensure_installed = {
-                "lua_ls",
-                "rust_analyzer",
-                "gopls",
-                "pyright",
-                "ts_ls",
+
+        local lspconfig = require('lspconfig')
+        lspconfig.ts_ls.setup({
+            capabilities = capabilities,
+            on_attach = function(client, _)
+                client.server_capabilities.documentFormattingProvider = false
+            end,
+            settings = {
+                typescript = {
+                    format = {
+                        indentSize = 2,
+                        convertTabsToSpaces = true,
+                    },
+                    inlayHints = {
+                        includeInlayParameterNameHints = "all",
+                        includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+                        includeInlayFunctionParameterTypeHints = true,
+                        includeInlayVariableTypeHints = true,
+                        includeInlayPropertyDeclarationTypeHints = true,
+                        includeInlayFunctionLikeReturnTypeHints = true,
+                        includeInlayEnumMemberValueHints = true,
+                    },
+                },
+                javascript = {
+                    format = {
+                        indentSize = 2,
+                        convertTabsToSpaces = true,
+                    },
+                },
             },
-            handlers = {
-                function(server_name) -- default handler (optional)
-                    require("lspconfig")[server_name].setup {
-                        capabilities = capabilities
-                    }
-                end,
-
-                zls = function()
-                    local lspconfig = require("lspconfig")
-                    lspconfig.zls.setup({
-                        root_dir = lspconfig.util.root_pattern(".git", "build.zig", "zls.json"),
-                        settings = {
-                            zls = {
-                                enable_inlay_hints = true,
-                                enable_snippets = true,
-                                warn_style = true,
-                            },
-                        },
-                    })
-                    vim.g.zig_fmt_parse_errors = 0
-                    vim.g.zig_fmt_autosave = 0
-                end,
-                ["lua_ls"] = function()
-                    local lspconfig = require("lspconfig")
-                    lspconfig.lua_ls.setup {
-                        capabilities = capabilities,
-                        settings = {
-                            Lua = {
-                                format = {
-                                    enable = true,
-                                    -- Put format options here
-                                    -- NOTE: the value should be STRING!!
-                                    defaultConfig = {
-                                        indent_style = "space",
-                                        indent_size = "2",
-                                    }
-                                },
-                                diagnostics = {
-                                    globals = { 'vim' },
-                                },
-                            }
-                        }
-                    }
-                end,
-                ["ts_ls"] = function()
-                    local lspconfig = require("lspconfig")
-                    lspconfig.ts_ls.setup {
-                        capabilities = capabilities,
-                        on_attach = function(client, bufnr)
-                            -- Disable ts_ls formatting so prettier via null-ls can handle it
-                            client.server_capabilities.documentFormattingProvider = false
-                        end,
-                    }
-
-                    -- Setup prettier formatting with 2 spaces via null-ls
-                    local null_ls = require("null-ls")
-                    null_ls.setup({
-                        sources = {
-                            null_ls.builtins.formatting.prettier.with({
-                                extra_args = { "--tab-width", "2" },
-                                filetypes = {
-                                    "typescript", "typescriptreact",
-                                    "javascript", "javascriptreact",
-                                },
-                            }),
-                        },
-                        on_attach = function(client, bufnr)
-                            if client.supports_method("textDocument/formatting") then
-                                vim.api.nvim_clear_autocmds({ group = "LspFormatting", buffer = bufnr })
-                                vim.api.nvim_create_autocmd("BufWritePre", {
-                                    group = vim.api.nvim_create_augroup("LspFormatting", { clear = true }),
-                                    buffer = bufnr,
-                                    callback = function()
-                                        vim.lsp.buf.format({
-                                            async = false,
-                                            filter = function(c)
-                                                return c.name == "null-ls"
-                                            end,
-                                        })
-                                    end,
-                                })
-                            end
-                        end,
-                    })
-                end,
-            }
         })
 
-        local cmp_select = { behavior = cmp.SelectBehavior.Select }
-
-        cmp.setup({
-            snippet = {
-                expand = function(args)
-                    require('luasnip').lsp_expand(args.body) -- For `luasnip` users.
-                end,
+        local null_ls = require("null-ls")
+        null_ls.setup({
+            sources = {
+                null_ls.builtins.formatting.prettier.with({
+                    extra_args = { "--tab-width", "2" },
+                    filetypes = {
+                        "typescript", "typescriptreact",
+                        "javascript", "javascriptreact",
+                    },
+                }),
             },
+            on_attach = function(client, bufnr)
+                if client.supports_method("textDocument/formatting") then
+                    vim.api.nvim_clear_autocmds({ group = "LspFormatting", buffer = bufnr })
+                    vim.api.nvim_create_autocmd("BufWritePre", {
+                        group = vim.api.nvim_create_augroup("LspFormatting", { clear = true }),
+                        buffer = bufnr,
+                        callback = function()
+                            vim.lsp.buf.format({
+                                async = false,
+                                filter = function(c)
+                                    return c.name == "null-ls"
+                                end,
+                            })
+                        end,
+                    })
+                end
+            end,
+        })
+
+        lspconfig.rust_analyzer.setup({
+            capabilities = capabilities,
+            settings = {
+                ["rust-analyzer"] = {
+                    cargo = {
+                        allFeatures = true,
+                        loadOutDirsFromCheck = true,
+                    },
+                    checkOnSave = {
+                        command = "clippy",
+                    },
+                    diagnostics = {
+                        enable = true,
+                        disabled = { "unresolved-proc-macro" },
+                        enableExperimental = true,
+                    },
+                    procMacro = {
+                        enable = true,
+                    },
+                    inlayHints = {
+                        bindingModeHints = { enable = true },
+                        closureReturnTypeHints = { enable = "always" },
+                        lifetimeElisionHints = {
+                            enable = true,
+                            useParameterNames = true,
+                        },
+                    },
+                },
+            },
+        })
+        lspconfig.ruff.setup({
+            capabilities = capabilities,
+            on_attach = function(client, _)
+                client.server_capabilities.documentFormattingProvider = true
+            end,
+            settings = {
+                args = { "--config=pyproject.toml" }
+            },
+        })
+        lspconfig.pyright.setup({
+            capabilities = capabilities,
+            on_attach = function(client, _)
+                client.server_capabilities.documentFormattingProvider = false
+            end,
+            settings = {
+                python = {
+                    analysis = {
+                        typeCheckingMode = "basic",
+                        autoSearchPaths = true,
+                        useLibraryCodeForTypes = true,
+                        diagnosticMode = "workspace",
+                        reportMissingImports = true,
+                        reportUndefinedVariable = true,
+                    },
+                    pythonPath = vim.fn.exepath("python3"),
+                },
+            },
+        })
+        lspconfig.gopls.setup({
+            capabilities = capabilities,
+            settings = {
+                gopls = {
+                    ["ui.inlayhint.hints"] = {
+                        compositeLiteralFields = true,
+                        constantValues = true,
+                        parameterNames = true,
+                    },
+                },
+            },
+        })
+        lspconfig.lua_ls.setup {
+            capabilities = capabilities,
+            settings = {
+                Lua = {
+                    runtime = {
+                        version = 'LuaJIT',
+                    },
+                    format = {
+                        enable = true,
+                        defaultConfig = {
+                            indent_style = "space",
+                            indent_size = "2",
+                        }
+                    },
+                    diagnostics = {
+                        globals = {
+                            'vim',
+                            'require'
+                        },
+                    },
+                    workspace = {
+                        library = vim.api.nvim_get_runtime_file("", true),
+                    },
+                    telemetry = {
+                        enable = false,
+                    },
+                },
+            },
+        }
+
+
+        local cmp_select = { behavior = cmp.SelectBehavior.Select }
+        cmp.setup({
             mapping = cmp.mapping.preset.insert({
                 ['<C-p>'] = cmp.mapping.select_prev_item(cmp_select),
                 ['<C-n>'] = cmp.mapping.select_next_item(cmp_select),
@@ -142,7 +202,6 @@ return {
             sources = cmp.config.sources({
                 { name = "copilot", group_index = 2 },
                 { name = 'nvim_lsp' },
-                { name = 'luasnip' }, -- For luasnip users.
             }, {
                 { name = 'buffer' },
             })
@@ -150,14 +209,17 @@ return {
 
         vim.diagnostic.config({
             -- update_in_insert = true,
+            virtual_text = true,
             float = {
                 focusable = false,
                 style = "minimal",
                 border = "rounded",
-                source = "always",
+                source = true,
                 header = "",
                 prefix = "",
             },
         })
+        require("mason").setup()
+        require("mason-lspconfig").setup()
     end
 }
