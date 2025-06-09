@@ -8,6 +8,7 @@ local autocmd = vim.api.nvim_create_autocmd
 local RenatoGroup = augroup('Renato', {})
 local yank_group = augroup('HighlightYank', {})
 
+
 function R(name)
     require("plenary.reload").reload_module(name)
 end
@@ -29,16 +30,24 @@ autocmd('TextYankPost', {
     end,
 })
 
--- autocmd('BufEnter', {
---     group = RenatoGroup,
---     callback = function()
---         if vim.bo.filetype == "zig" then
---             vim.cmd.colorscheme("tokyonight-night")
---         else
---             vim.cmd.colorscheme("rose-pine-moon")
---         end
---     end
--- })
+local ts_files = { typescript = true, javascript = true, typescriptreact = true }
+autocmd('BufEnter', {
+    group = RenatoGroup,
+    callback = function()
+        local ft = vim.bo.filetype
+        if ft == "lua" then
+            vim.cmd.colorscheme("tokyonight-night")
+        elseif ft == "python" then
+            vim.cmd.colorscheme("biscuit")
+        elseif ts_files[ft] then
+            vim.cmd.colorscheme("onedark")
+        elseif ft == "rust" then
+            vim.cmd.colorscheme("jellybeans")
+        else
+            vim.cmd.colorscheme("gruvbox-material")
+        end
+    end
+})
 
 autocmd('LspAttach', {
     group = RenatoGroup,

@@ -14,10 +14,16 @@ return {
         "j-hui/fidget.nvim",
     },
 
+
     config = function()
         require("conform").setup({
             formatters_by_ft = {
-            }
+                python = { "isort" },
+            },
+            format_on_save = {
+                lsp_fallback = true,
+                timeout_ms = 1000,
+            },
         })
         local cmp = require('cmp')
         local cmp_lsp = require("cmp_nvim_lsp")
@@ -98,9 +104,7 @@ return {
                         allFeatures = true,
                         loadOutDirsFromCheck = true,
                     },
-                    checkOnSave = {
-                        command = "clippy",
-                    },
+                    checkOnSave = true,
                     diagnostics = {
                         enable = true,
                         disabled = { "unresolved-proc-macro" },
@@ -140,7 +144,7 @@ return {
                         typeCheckingMode = "basic",
                         autoSearchPaths = true,
                         useLibraryCodeForTypes = true,
-                        diagnosticMode = "workspace",
+                        diagnosticMode = "openFilesOnly",
                         reportMissingImports = true,
                         reportUndefinedVariable = true,
                     },
